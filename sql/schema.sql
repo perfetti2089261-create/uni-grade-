@@ -84,3 +84,35 @@ CREATE POLICY "Users can view their own predictions"
 CREATE POLICY "Users can create predictions"
   ON predictions FOR INSERT
   WITH CHECK (auth.uid() = user_id);
+
+-- Tabella per pianificare sessioni di studio / date future d'esame
+CREATE TABLE study_sessions (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  exam_id UUID REFERENCES exams(id) ON DELETE CASCADE,
+  session_date TIMESTAMP WITH TIME ZONE NOT NULL,
+  notes TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_study_user_id ON study_sessions(user_id);
+CREATE INDEX idx_study_exam_id ON study_sessions(exam_id);
+CREATE INDEX idx_study_date ON study_sessions(session_date);
+
+ALTER TABLE study_sessions ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view their own study sessions"
+  ON study_sessions FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can create study sessions"
+  ON study_sessions FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own study sessions"
+  ON study_sessions FOR UPDATE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own study sessions"
+  ON study_sessions FOR DELETE
+  USING (auth.uid() = user_id);

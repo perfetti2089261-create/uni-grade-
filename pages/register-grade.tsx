@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { ExamForm } from '@/lib/components/ExamForm';
 import { GradeForm } from '@/lib/components/GradeForm';
+import QuickAddExamGrade from '@/lib/components/QuickAddExamGrade';
 
 interface Exam {
   id: string;
@@ -46,9 +47,15 @@ export default function RegisterGrade() {
       {error && <p className="error">{error}</p>}
 
       <section className="form-section">
+        <div className="quick-add-block">
+          <QuickAddExamGrade onAdded={fetchExams} />
+        </div>
+
+        <hr />
+
         {exams.length === 0 ? (
           <div className="no-exams">
-            <p>You haven't added any exams yet.</p>
+            <p>You haven't added any exams yet. Use Quick Add above or add a new exam.</p>
             <ExamForm onExamAdded={fetchExams} />
           </div>
         ) : (
