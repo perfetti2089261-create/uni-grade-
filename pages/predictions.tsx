@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabaseClient';
 import { PredictionList } from '@/lib/components/PredictionList';
 
 interface Prediction {
@@ -25,7 +26,16 @@ export default function Predictions() {
   const fetchPredictions = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/predictions');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Not authenticated. Please log in.');
+      }
+
+      const response = await fetch('/api/predictions', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
       if (!response.ok) throw new Error('Failed to fetch predictions');
       const data = await response.json();
       setPredictions(data);
@@ -38,10 +48,16 @@ export default function Predictions() {
 
   const generateNewPrediction = async () => {
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Not authenticated. Please log in.');
+      }
+
       const response = await fetch('/api/predictions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({ examId: null }),
       });

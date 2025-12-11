@@ -1,6 +1,8 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabaseClient';
 import { GradeList } from '@/lib/components/GradeList';
 
 interface Grade {
@@ -15,18 +17,36 @@ interface Grade {
 }
 
 export default function Dashboard() {
+  const router = useRouter();
   const [grades, setGrades] = useState<Grade[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    fetchGrades();
-  }, []);
+    const checkAuthAndFetch = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.push('/auth');
+        return;
+      }
+      await fetchGrades();
+    };
+    checkAuthAndFetch();
+  }, [router]);
 
   const fetchGrades = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/grades');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Not authenticated. Please log in.');
+      }
+
+      const response = await fetch('/api/grades', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
       if (!response.ok) throw new Error('Failed to fetch grades');
       const data = await response.json();
       setGrades(data);
@@ -37,11 +57,21 @@ export default function Dashboard() {
     }
   };
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push('/');
+  };
+
   if (loading) return <div className="loading">Loading...</div>;
 
   return (
     <main className="dashboard-page">
-      <h1>Dashboard</h1>
+      <div className="dashboard-header">
+        <h1>Dashboard</h1>
+        <button onClick={handleLogout} className="btn btn-secondary">
+          Logout
+        </button>
+      </div>
       
       <div className="dashboard-navigation">
         <a href="/register-grade" className="btn btn-secondary">
@@ -49,6 +79,9 @@ export default function Dashboard() {
         </a>
         <a href="/predictions" className="btn btn-secondary">
           View Predictions
+        </a>
+        <a href="/study-planner" className="btn btn-secondary">
+          Study Planner
         </a>
       </div>
 

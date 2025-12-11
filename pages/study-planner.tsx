@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabaseClient';
 import Calendar from '@/lib/components/Calendar';
 
 interface Session {
@@ -23,7 +24,16 @@ export default function StudyPlanner() {
   const fetchSessions = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/study-sessions');
+      const { data: { session: authSession } } = await supabase.auth.getSession();
+      if (!authSession?.access_token) {
+        throw new Error('Not authenticated. Please log in.');
+      }
+
+      const res = await fetch('/api/study-sessions', {
+        headers: {
+          'Authorization': `Bearer ${authSession.access_token}`,
+        },
+      });
       if (!res.ok) throw new Error('Failed to fetch sessions');
       const data = await res.json();
       setSessions(data);
@@ -40,9 +50,17 @@ export default function StudyPlanner() {
   const createSession = async () => {
     if (!selectedDate) return;
     try {
+      const { data: { session: authSession } } = await supabase.auth.getSession();
+      if (!authSession?.access_token) {
+        throw new Error('Not authenticated. Please log in.');
+      }
+
       const res = await fetch('/api/study-sessions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authSession.access_token}`,
+        },
         body: JSON.stringify({ examId: null, sessionDate: selectedDate, notes: newNotes }),
       });
       if (!res.ok) throw new Error('Failed to create session');

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { supabase } from '@/lib/supabaseClient';
 
 interface GradeFormProps {
   examId: string;
@@ -22,10 +23,17 @@ export const GradeForm: React.FC<GradeFormProps> = ({ examId, onGradeAdded }) =>
     setSuccess('');
 
     try {
+      // Get session token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Not authenticated. Please log in.');
+      }
+
       const response = await fetch('/api/grades', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           examId,

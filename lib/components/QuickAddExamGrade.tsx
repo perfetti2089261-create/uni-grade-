@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { supabase } from '@/lib/supabaseClient';
 
 interface Props {
   onAdded?: () => void;
@@ -21,10 +22,21 @@ export const QuickAddExamGrade: React.FC<Props> = ({ onAdded }) => {
     setError('');
 
     try {
+      // Get session token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Not authenticated. Please log in.');
+      }
+
+      const token = session.access_token;
+
       // 1) create exam
       const examRes = await fetch('/api/exams', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
         body: JSON.stringify({ name, courseCode: '', credits: credits ? parseInt(credits) : null }),
       });
 
@@ -34,7 +46,10 @@ export const QuickAddExamGrade: React.FC<Props> = ({ onAdded }) => {
       // 2) create grade for the newly created exam
       const gradeRes = await fetch('/api/grades', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
         body: JSON.stringify({
           examId: exam.id,
           grade: parseFloat(grade),

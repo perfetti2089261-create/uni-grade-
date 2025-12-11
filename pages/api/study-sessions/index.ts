@@ -1,14 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseClient';
 
+async function getUserFromToken(token: string) {
+  try {
+    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+    if (error) {
+      console.error('Auth error:', error);
+      return null;
+    }
+    return user;
+  } catch (err) {
+    console.error('Token verification error:', err);
+    return null;
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const { examId, sessionDate, notes } = await request.json();
+    const { sessionDate, notes } = await request.json();
 
-    const userId = request.headers.get('x-user-id');
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader) {
+      return NextResponse.json({ error: 'Missing authorization header' }, { status: 401 });
     }
+
+    const token = authHeader.replace('Bearer ', '');
+    const user = await getUserFromToken(token);
+    
+    if (!user) {
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
+    }
+
+    const userId = user.id;
 
     const { data, error } = await supabaseAdmin
       .from('study_sessions')
@@ -33,10 +56,19 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const userId = request.headers.get('x-user-id');
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader) {
+      return NextResponse.json({ error: 'Missing authorization header' }, { status: 401 });
     }
+
+    const token = authHeader.replace('Bearer ', '');
+    const user = await getUserFromToken(token);
+    
+    if (!user) {
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
+    }
+
+    const userId = user.id;
 
     const { data, error } = await supabaseAdmin
       .from('study_sessions')
