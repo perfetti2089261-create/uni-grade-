@@ -17,7 +17,7 @@ async function getUserFromToken(token: string) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { sessionDate, notes } = await request.json();
+    const { examId, sessionDate, notes } = await request.json();
 
     const authHeader = request.headers.get('authorization');
     if (!authHeader) {
