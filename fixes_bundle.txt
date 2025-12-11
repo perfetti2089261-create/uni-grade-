@@ -1,0 +1,508 @@
+===FILE: lib/supabaseClient.ts
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+
+// Always export the names so TypeScript imports work; they may be `null` at build time
+// if env vars aren't set. Use the runtime accessors below to get safe clients.
+export let supabase: SupabaseClient | null = null;
+export let supabaseAdmin: SupabaseClient | null = null;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  // Avoid throwing during Next.js build so pages can be compiled.
+  // Do NOT call createClient with empty values because the SDK validates inputs and will throw.
+  // eslint-disable-next-line no-console
+  console.warn('Warning: Missing Supabase environment variables. Supabase client NOT created.');
+} else {
+  supabase = createClient(supabaseUrl, supabaseAnonKey);
+  supabaseAdmin = createClient(supabaseUrl, process.env.SUPABASE_SERVICE_KEY || '');
+}
+
+/**
+ * Runtime-safe accessors. Use these when you need a clear runtime error
+ * if Supabase is not configured (preferred for server-side use).
+ */
+export function getSupabase() {
+  if (!supabase) {
+    throw new Error('Supabase client is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.');
+  }
+  return supabase;
+}
+
+export function getSupabaseAdmin() {
+  if (!supabaseAdmin) {
+    throw new Error('Supabase admin client is not configured. Set SUPABASE_SERVICE_KEY.');
+  }
+  return supabaseAdmin;
+}
+===END
+
+===FILE: lib/components/ProtectedRoute.tsx
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabaseClient';
+
+interface ProtectedRouteProps {
+  children: React.ReactNode;
+}
+
+export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
+  const router = useRouter();
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } await supabase.auth.getSession();
+      if (!session) {
+        router.push('/auth');
+      } else {
+        setIsAuthenticated(true);
+      }
+    };
+
+    checkAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!session) {
+        router.push('/auth');
+      } else {
+        setIsAuthenticated(true);
+      }
+    });
+
+    return () => subscription?.unsubscribe();
+  }, [router]);
+
+  if (isAuthenticated === null) {
+    return <div className="loading">Checking authentication...</div>;
+  }
+
+  return <>{children}</>;
+};
+===END
+
+===FILE: pages/api/study-sessions/index.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { getSupabaseAdmin } from '@/lib/supabaseClient';
+
+async function getUserFromToken(token: string) {
+  try {
+    const supabaseAdmin = getSupabaseAdmin();
+    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+    if (error) {
+      console.error('Auth error:', error);
+      return null;
+    }
+    return user;
+  } catch (err) {
+    console.error('Token verification error:', err);
+    return null;
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const { examId, sessionDate, notes } = await request.json();
+
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader) {
+      return NextResponse.json({ error: 'Missing authorization header' }, { status: 401 });
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const user = await getUserFromToken(token);
+    
+    if (!user) {
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
+    }
+
+    const userId = user.id;
+
+    const supabaseAdmin = getSupabaseAdmin();
+    const { data, error } = await supabaseAdmin
+      .from('study_sessions')
+      .insert([
+        {
+          exam_id: examId || null,
+          user_id: userId,
+          session_date: sessionDate,
+          notes,
+        },
+      ])
+      .select();
+
+    if (error) throw error;
+
+    return NextResponse.json(data[0], { status: 201 });
+  } catch (error) {
+    console.error('Error creating study session:', error);
+    return NextResponse.json({ error: 'Failed to create study session' }, { status: 500 });
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader) {
+      return NextResponse.json({ error: 'Missing authorization header' }, { status: 401 });
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const user = await getUserFromToken(token);
+    
+    if (!user) {
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
+    }
+
+    const userId = user.id;
+
+    const supabaseAdmin = getSupabaseAdmin();
+    const { data, error } = await supabaseAdmin
+      .from('study_sessions')
+      .select('*, exams(name)')
+      .eq('user_id', userId)
+      .order('session_date', { ascending: true });
+
+    if (error) throw error;
+
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error('Error fetching study sessions:', error);
+    return NextResponse.json({ error: 'Failed to fetch study sessions' }, { status: 500 });
+  }
+}
+===END
+
+===FILE: pages/api/predictions/index.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { getSupabaseAdmin } from '@/lib/supabaseClient';
+
+interface Grade {
+  grade: number;
+}
+
+async function getUserFromToken(token: string) {
+  try {
+    const supabaseAdmin = getSupabaseAdmin();
+    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+    if (error) {
+      console.error('Auth error:', error);
+      return null;
+    }
+    return user;
+  } catch (err) {
+    console.error('Token verification error:', err);
+    return null;
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const { examId } = await request.json();
+
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader) {
+      return NextResponse.json({ error: 'Missing authorization header' }, { status: 401 });
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const user = await getUserFromToken(token);
+    
+    if (!user) {
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
+    }
+
+    const userId = user.id;    // Fetch all grades for the user
+    const supabaseAdmin = getSupabaseAdmin();
+    const { data: grades, error: gradesError } = await supabaseAdmin
+      .from('grades')
+      .select('grade')
+      .eq('user_id', userId);
+
+    if (gradesError) throw gradesError;
+
+    if (!grades || grades.length === 0) {
+      return NextResponse.json(
+        { error: 'No grades found to calculate prediction' },
+        { status: 400 }
+      );
+    }
+
+    // Calculate mean grade
+    const meanGrade = 
+      grades.reduce((sum: number, g: Grade) => sum + g.grade, 0) / grades.length;
+
+    // Calculate confidence score based on number of grades
+    const confidenceScore = Math.min(grades.length / 10, 1.0);
+
+    // Insert prediction
+    const { data, error } = await supabaseAdmin
+      .from('predictions')
+      .insert([
+        {
+          exam_id: examId || null,
+          user_id: userId,
+          predicted_grade: parseFloat(meanGrade.toFixed(2)),
+          confidence_score: parseFloat(confidenceScore.toFixed(2)),
+        },
+      ])
+      .select();
+
+    if (error) throw error;
+
+    return NextResponse.json(
+      {
+        ...data[0],
+        meanGrade,
+        explanation: `Based on your mean grade of ${meanGrade.toFixed(2)}/30`,
+      },
+      { status: 201 }
+    );
+  } catch (error) {
+    console.error('Error creating prediction:', error);
+    return NextResponse.json(
+      { error: 'Failed to create prediction' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader) {
+      return NextResponse.json({ error: 'Missing authorization header' }, { status: 401 });
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const user = await getUserFromToken(token);
+    
+    if (!user) {
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
+    }
+
+    const userId = user.id;
+
+    const supabaseAdmin = getSupabaseAdmin();
+    const { data, error } = await supabaseAdmin
+      .from('predictions')
+      .select('*, exams(name)')
+      .eq('user_id', userId)
+      .order('calculation_date', { ascending: false });
+
+    if (error) throw error;
+
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error('Error fetching predictions:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch predictions' },
+      { status: 500 }
+    );
+  }
+}
+===END
+
+===FILE: pages/api/grades/index.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { getSupabaseAdmin } from '@/lib/supabaseClient';
+
+async function getUserFromToken(token: string) {
+  try {
+    const supabaseAdmin = getSupabaseAdmin();
+    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+    if (error) {
+      console.error('Auth error:', error);
+      return null;
+    }
+    return user;
+  } catch (err) {
+    console.error('Token verification error:', err);
+    return null;
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const { examId, grade, dateTaken, notes } = await request.json();
+
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader) {
+      console.error('Missing authorization header');
+      return NextResponse.json({ error: 'Missing authorization header' }, { status: 401 });
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const user = await getUserFromToken(token);
+    
+    if (!user) {
+      console.error('Invalid token');
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
+    }
+
+    const userId = user.id;
+
+    const supabaseAdmin = getSupabaseAdmin();
+    const { data, error } = await supabaseAdmin
+      .from('grades')
+      .insert([
+        {
+          exam_id: examId,
+          grade,
+          date_taken: dateTaken,
+          notes,
+          user_id: userId,
+        },
+      ])
+      .select();
+
+    if (error) throw error;
+
+    return NextResponse.json(data[0], { status: 201 });
+  } catch (error) {
+    console.error('Error creating grade:', error);
+    return NextResponse.json(
+      { error: 'Failed to create grade' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader) {
+      console.error('Missing authorization header in GET');
+      return NextResponse.json({ error: 'Missing authorization header' }, { status: 401 });
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const user = await getUserFromToken(token);
+    
+    if (!user) {
+      console.error('Invalid token in GET');
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
+    }
+
+    const userId = user.id;
+
+    const supabaseAdmin = getSupabaseAdmin();
+    const { data, error } = await supabaseAdmin
+      .from('grades')
+      .select('*, exams(name, course_code)')
+      .eq('user_id', userId)
+      .order('date_taken', { ascending: false });
+
+    if (error) throw error;
+
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error('Error fetching grades:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch grades' },
+      { status: 500 }
+    );
+  }
+}
+===END
+
+===FILE: pages/api/exams/index.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { getSupabaseAdmin } from '@/lib/supabaseClient';
+
+async function getUserFromToken(token: string) {
+  try {
+    const supabaseAdmin = getSupabaseAdmin();
+    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+    if (error) {
+      console.error('Auth error:', error);
+      return null;
+    }
+    return user;
+  } catch (err) {
+    console.error('Token verification error:', err);
+    return null;
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const { name, courseCode, credits } = await request.json();
+
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader) {
+      return NextResponse.json({ error: 'Missing authorization header' }, { status: 401 });
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const user = await getUserFromToken(token);
+    
+    if (!user) {
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
+    }
+
+    const userId = user.id;
+
+    const supabaseAdmin = getSupabaseAdmin();
+    const { data, error } = await supabaseAdmin
+      .from('exams')
+      .insert([
+        {
+          name,
+          course_code: courseCode,
+          credits,
+          user_id: userId,
+        },
+      ])
+      .select();
+
+    if (error) throw error;
+
+    return NextResponse.json(data[0], { status: 201 });
+  } catch (error) {
+    console.error('Error creating exam:', error);
+    return NextResponse.json(
+      { error: 'Failed to create exam' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader) {
+      return NextResponse.json({ error: 'Missing authorization header' }, { status: 401 });
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const user = await getUserFromToken(token);
+    
+    if (!user) {
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
+    }
+
+    const userId = user.id;
+
+    const supabaseAdmin = getSupabaseAdmin();
+    const { data, error } = await supabaseAdmin
+      .from('exams')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error('Error fetching exams:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch exams' },
+      { status: 500 }
+    );
+  }
+}
+===END
