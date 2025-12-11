@@ -23,3 +23,21 @@ if (!supabaseUrl || !supabaseAnonKey) {
     process.env.SUPABASE_SERVICE_KEY || ''
   );
 }
+
+/**
+ * Runtime-safe accessors. Use these when you need a clear runtime error
+ * if Supabase is not configured (preferred for server-side use).
+ */
+export function getSupabase() {
+  if (!supabase) {
+    throw new Error('Supabase client is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.');
+  }
+  return supabase;
+}
+
+export function getSupabaseAdmin() {
+  if (!supabaseAdmin) {
+    throw new Error('Supabase admin client is not configured. Set SUPABASE_SERVICE_KEY.');
+  }
+  return supabaseAdmin;
+}
