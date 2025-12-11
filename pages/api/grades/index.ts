@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabaseClient';
+import { getSupabaseAdmin } from '@/lib/supabaseClient';
 
 async function getUserFromToken(token: string) {
   try {
+    const supabaseAdmin = getSupabaseAdmin();
     const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
     if (error) {
       console.error('Auth error:', error);
@@ -35,6 +36,7 @@ export async function POST(request: NextRequest) {
 
     const userId = user.id;
 
+    const supabaseAdmin = getSupabaseAdmin();
     const { data, error } = await supabaseAdmin
       .from('grades')
       .insert([
@@ -78,6 +80,7 @@ export async function GET(request: NextRequest) {
 
     const userId = user.id;
 
+    const supabaseAdmin = getSupabaseAdmin();
     const { data, error } = await supabaseAdmin
       .from('grades')
       .select('*, exams(name, course_code)')
