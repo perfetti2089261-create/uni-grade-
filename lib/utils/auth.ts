@@ -14,7 +14,8 @@ export async function fetchWithAuth(
   try {
     // Dinamico import di supabase solo se in browser
     if (typeof window !== 'undefined') {
-      const { supabase } = await import('@/lib/supabaseClient');
+      const { getSupabase } = await import('@/lib/supabaseClient');
+      const supabase = getSupabase();
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session?.access_token) {

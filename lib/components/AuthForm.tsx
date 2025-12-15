@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { getSupabase } from '@/lib/supabaseClient';
 
 interface AuthFormProps {
   onSuccess?: () => void;
@@ -22,6 +22,8 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onSuccess }) => {
     setMessage('');
 
     try {
+      const supabase = getSupabase();
+
       if (isLogin) {
         // Sign in
         const { error: signInError } = await supabase.auth.signInWithPassword({

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabaseClient';
+import { getSupabase } from '@/lib/supabaseClient';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -14,7 +14,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
 
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { session } } await supabase.auth.getSession();
+      const supabase = getSupabase();
+      const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         router.push('/auth');
       } else {
@@ -24,6 +25,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
 
     checkAuth();
 
+    const supabase = getSupabase();
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!session) {
         router.push('/auth');

@@ -1,6 +1,6 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { getSupabase } from '@/lib/supabaseClient';
 
 export default function Home() {
   const router = useRouter();
@@ -9,6 +9,7 @@ export default function Home() {
 
   useEffect(() => {
     const checkAuth = async () => {
+      const supabase = getSupabase();
       const { data: { session } } = await supabase.auth.getSession();
       setUser(session?.user || null);
       setLoading(false);
@@ -17,6 +18,7 @@ export default function Home() {
   }, []);
 
   const handleLogout = async () => {
+    const supabase = getSupabase();
     await supabase.auth.signOut();
     router.push('/');
   };

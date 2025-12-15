@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { getSupabase } from '@/lib/supabaseClient';
 
 interface ExamFormProps {
   onExamAdded?: () => void;
@@ -23,6 +23,7 @@ export const ExamForm: React.FC<ExamFormProps> = ({ onExamAdded }) => {
 
     try {
       // Get session token
+      const supabase = getSupabase();
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
         throw new Error('Not authenticated. Please log in.');

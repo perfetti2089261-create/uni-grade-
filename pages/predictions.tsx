@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { getSupabase } from '@/lib/supabaseClient';
 import { PredictionList } from '@/lib/components/PredictionList';
 
 interface Prediction {
@@ -26,6 +26,7 @@ export default function Predictions() {
   const fetchPredictions = async () => {
     try {
       setLoading(true);
+      const supabase = getSupabase();
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
         throw new Error('Not authenticated. Please log in.');
@@ -48,6 +49,7 @@ export default function Predictions() {
 
   const generateNewPrediction = async () => {
     try {
+      const supabase = getSupabase();
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
         throw new Error('Not authenticated. Please log in.');

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { getSupabase } from '@/lib/supabaseClient';
 
 export const useUser = () => {
   const [user, setUser] = useState<any>(null);
@@ -11,20 +11,22 @@ export const useUser = () => {
   useEffect(() => {
     const getUser = async () => {
       try {
-        const { data, error } = await supabase.auth.getUser();
-        if (error) throw error;
-        setUser(data.user);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Unknown error');
-        setUser(null);
-      } finally {
-        setLoading(false);
-      }
-    };
+const supabase = getSupabase();
+    const { data, error } = await supabase.auth.getUser();
+    if (error) throw error;
+    setUser(data.user);
+  } catch (err) {
+    setError(err instanceof Error ? err.message : 'Unknown error');
+    setUser(null);
+  } finally {
+    setLoading(false);
+  }
+};
 
-    getUser();
+getUser();
 
-    // Listen for auth changes
+// Listen for auth changes
+const supabase = getSupabase();
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setUser(session?.user || null);

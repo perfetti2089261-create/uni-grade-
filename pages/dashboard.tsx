@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { getSupabase } from '@/lib/supabaseClient';
 import { GradeList } from '@/lib/components/GradeList';
 
 interface Grade {
@@ -24,6 +24,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     const checkAuthAndFetch = async () => {
+        const supabase = getSupabase();
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         router.push('/auth');
@@ -37,6 +38,7 @@ export default function Dashboard() {
   const fetchGrades = async () => {
     try {
       setLoading(true);
+      const supabase = getSupabase();
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
         throw new Error('Not authenticated. Please log in.');
@@ -58,6 +60,7 @@ export default function Dashboard() {
   };
 
   const handleLogout = async () => {
+    const supabase = getSupabase();
     await supabase.auth.signOut();
     router.push('/');
   };

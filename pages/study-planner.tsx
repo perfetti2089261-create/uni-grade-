@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { getSupabase } from '@/lib/supabaseClient';
 import Calendar from '@/lib/components/Calendar';
 
 interface Session {
@@ -24,6 +24,7 @@ export default function StudyPlanner() {
   const fetchSessions = async () => {
     try {
       setLoading(true);
+      const supabase = getSupabase();
       const { data: { session: authSession } } = await supabase.auth.getSession();
       if (!authSession?.access_token) {
         throw new Error('Not authenticated. Please log in.');
@@ -50,6 +51,7 @@ export default function StudyPlanner() {
   const createSession = async () => {
     if (!selectedDate) return;
     try {
+      const supabase = getSupabase();
       const { data: { session: authSession } } = await supabase.auth.getSession();
       if (!authSession?.access_token) {
         throw new Error('Not authenticated. Please log in.');

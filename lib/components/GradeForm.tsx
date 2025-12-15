@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { getSupabase } from '@/lib/supabaseClient';
 
 interface GradeFormProps {
   examId: string;
@@ -24,6 +24,7 @@ export const GradeForm: React.FC<GradeFormProps> = ({ examId, onGradeAdded }) =>
 
     try {
       // Get session token
+      const supabase = getSupabase();
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
         throw new Error('Not authenticated. Please log in.');

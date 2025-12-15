@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { getSupabase } from '@/lib/supabaseClient';
 import { AuthForm } from '@/lib/components/AuthForm';
 
 export default function Auth() {
@@ -11,6 +11,7 @@ export default function Auth() {
 
   useEffect(() => {
     const checkAuth = async () => {
+      const supabase = getSupabase();
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
         router.push('/dashboard');

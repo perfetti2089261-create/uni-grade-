@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { getSupabase } from '@/lib/supabaseClient';
 import { ExamForm } from '@/lib/components/ExamForm';
 import { GradeForm } from '@/lib/components/GradeForm';
 import QuickAddExamGrade from '@/lib/components/QuickAddExamGrade';
@@ -27,6 +27,7 @@ export default function RegisterGrade() {
   const fetchExams = async () => {
     try {
       setLoading(true);
+      const supabase = getSupabase();
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
         throw new Error('Not authenticated. Please log in.');
