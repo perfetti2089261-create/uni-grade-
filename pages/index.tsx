@@ -9,10 +9,18 @@ export default function Home() {
 
   useEffect(() => {
     const checkAuth = async () => {
-      const supabase = getSupabase();
-      const { data: { session } } = await supabase.auth.getSession();
-      setUser(session?.user || null);
-      setLoading(false);
+      try {
+        const supabase = getSupabase();
+        const { data: { session } } = await supabase.auth.getSession();
+        setUser(session?.user || null);
+      } catch (err) {
+        // If Supabase isn't configured or another error occurs, treat user as unauthenticated
+        // eslint-disable-next-line no-console
+        console.error('checkAuth error:', err);
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
     };
     checkAuth();
   }, []);

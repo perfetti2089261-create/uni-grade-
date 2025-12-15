@@ -25,15 +25,21 @@ const supabase = getSupabase();
 
 getUser();
 
-// Listen for auth changes
-const supabase = getSupabase();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setUser(session?.user || null);
-      }
-    );
+    // Listen for auth changes
+    try {
+      const supabaseSub = getSupabase();
+      const { data: { subscription } } = supabaseSub.auth.onAuthStateChange(
+        (event, session) => {
+          setUser(session?.user || null);
+        }
+      );
 
-    return () => subscription?.unsubscribe();
+      return () => subscription?.unsubscribe();
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('useUser subscription error:', err);
+      return;
+    }
   }, []);
 
   return { user, loading, error };

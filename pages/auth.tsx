@@ -11,12 +11,19 @@ export default function Auth() {
 
   useEffect(() => {
     const checkAuth = async () => {
-      const supabase = getSupabase();
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        router.push('/dashboard');
+      try {
+        const supabase = getSupabase();
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          router.push('/dashboard');
+        }
+      } catch (err) {
+        // Log and continue to show auth form if Supabase isn't available
+        // eslint-disable-next-line no-console
+        console.error('auth check error:', err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     checkAuth();

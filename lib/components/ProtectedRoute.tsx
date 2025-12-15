@@ -14,27 +14,41 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
 
   useEffect(() => {
     const checkAuth = async () => {
-      const supabase = getSupabase();
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+      try {
+        const supabase = getSupabase();
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          router.push('/auth');
+        } else {
+          setIsAuthenticated(true);
+        }
+      } catch (err) {
+        // If Supabase isn't configured, redirect to auth to avoid hanging
+        // eslint-disable-next-line no-console
+        console.error('ProtectedRoute check error:', err);
         router.push('/auth');
-      } else {
-        setIsAuthenticated(true);
       }
     };
 
     checkAuth();
 
-    const supabase = getSupabase();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!session) {
-        router.push('/auth');
-      } else {
-        setIsAuthenticated(true);
-      }
-    });
+    try {
+      const supabase = getSupabase();
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        if (!session) {
+          router.push('/auth');
+        } else {
+          setIsAuthenticated(true);
+        }
+      });
 
-    return () => subscription?.unsubscribe();
+      return () => subscription?.unsubscribe();
+    } catch (err) {
+      // If subscription couldn't be created, just redirect to auth
+      // eslint-disable-next-line no-console
+      console.error('ProtectedRoute subscription error:', err);
+      router.push('/auth');
+    }
   }, [router]);
 
   if (isAuthenticated === null) {

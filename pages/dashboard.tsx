@@ -24,13 +24,22 @@ export default function Dashboard() {
 
   useEffect(() => {
     const checkAuthAndFetch = async () => {
+      try {
         const supabase = getSupabase();
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        router.push('/auth');
-        return;
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          router.push('/auth');
+          return;
+        }
+        await fetchGrades();
+      } catch (err) {
+        // If Supabase is not configured or an error occurs, surface it and stop loading
+        // eslint-disable-next-line no-console
+        console.error('checkAuthAndFetch error:', err);
+        setError(err instanceof Error ? err.message : 'Authentication error');
+      } finally {
+        setLoading(false);
       }
-      await fetchGrades();
     };
     checkAuthAndFetch();
   }, [router]);
